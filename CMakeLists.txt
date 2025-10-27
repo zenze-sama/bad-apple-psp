@@ -10,7 +10,6 @@ include(FindPkgConfig)
 pkg_search_module(SDL2 REQUIRED sdl2)
 pkg_search_module(SDL2_IMAGE REQUIRED SDL2_image)
 
-# Keep SDL2main this time (since we removed PSP module info)
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${SDL2_INCLUDE_DIRS}
     ${SDL2_IMAGE_INCLUDE_DIRS}

@@ -1,1 +1,4 @@
 /build
+/frames-packing/.venv
+/frames-packing/frames
+/frames-packing/frames.dat

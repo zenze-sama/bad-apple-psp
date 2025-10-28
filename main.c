@@ -1,5 +1,7 @@
 #include <SDL.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 272
@@ -7,6 +9,16 @@
 #define FRAME_COUNT 6572
 #define FPS 30
 #define FRAME_TIME (1000 / FPS)
+
+static Uint32 LUT[256][8]; // LookUp table optimization
+
+void init_lut(void) {
+    for (int b = 0; b < 256; ++b) {
+        for (int bit = 7; bit >= 0; --bit) {
+            LUT[b][7 - bit] = (b & (1 << bit)) ? 0xFFFFFFFF : 0xFF000000;
+        }
+    }
+}
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -20,6 +32,7 @@ int main(int argc, char *argv[]) {
         SCREEN_WIDTH, SCREEN_HEIGHT,
         0
     );
+
     if (!window) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         SDL_Quit();
@@ -41,6 +54,7 @@ int main(int argc, char *argv[]) {
         SCREEN_WIDTH,
         SCREEN_HEIGHT
     );
+
     if (!texture) {
         SDL_Log("SDL_CreateTexture failed: %s", SDL_GetError());
         SDL_DestroyRenderer(renderer);
@@ -59,14 +73,37 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    Uint8 frameData[FRAME_SIZE];
-    Uint32 *pixels;
-    int pitch;
+    init_lut();
+
+    Uint8 *frameData = malloc(FRAME_SIZE); //some heap magic i dont understand
+    if (!frameData) {
+        SDL_Log("Memory allocation failed!");
+        fclose(file);
+        SDL_DestroyTexture(texture);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    Uint32 *pixels = malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32)); //some heap magic i dont understand
+    if (!pixels) {
+        SDL_Log("Pixel buffer allocation failed!");
+        free(frameData);
+        fclose(file);
+        SDL_DestroyTexture(texture);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
 
     int running = 1;
     SDL_Event event;
     Uint32 frameStart, frameTime;
     int currentFrame = 0;
+    Uint32 lastFpsTime = SDL_GetTicks();
+    int framesRendered = 0;
 
     while (running && currentFrame < FRAME_COUNT) {
         frameStart = SDL_GetTicks();
@@ -80,38 +117,35 @@ int main(int argc, char *argv[]) {
         }
 
         size_t bytesRead = fread(frameData, 1, FRAME_SIZE, file);
-        if (bytesRead < FRAME_SIZE) {
-            break;
-        }
+        if (bytesRead < FRAME_SIZE) break;
 
-        if (SDL_LockTexture(texture, NULL, (void**)&pixels, &pitch) < 0) {
-            SDL_Log("SDL_LockTexture failed: %s", SDL_GetError());
-            break;
-        }
-
-        int pixelIndex = 0;
+        Uint32 *dst = pixels;
         for (int i = 0; i < FRAME_SIZE; ++i) {
-            Uint8 byte = frameData[i];
-            for (int bit = 7; bit >= 0; --bit) {
-                Uint32 color = (byte & (1 << bit)) ? 0xFFFFFFFF : 0xFF000000;
-                pixels[pixelIndex++] = color;
-            }
+            memcpy(dst, LUT[frameData[i]], 8 * sizeof(Uint32));
+            dst += 8;
         }
 
-        SDL_UnlockTexture(texture);
+        SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
 
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
 
         currentFrame++;
+        framesRendered++;
 
         frameTime = SDL_GetTicks() - frameStart;
-        if (frameTime < FRAME_TIME) {
-            SDL_Delay(FRAME_TIME - frameTime);
+        if (frameTime < FRAME_TIME) SDL_Delay(FRAME_TIME - frameTime);
+
+        Uint32 now = SDL_GetTicks();
+        if (now - lastFpsTime >= 1000) {
+            framesRendered = 0;
+            lastFpsTime = now;
         }
     }
 
+    free(pixels);
+    free(frameData);
     fclose(file);
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);

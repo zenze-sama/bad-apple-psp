@@ -9,7 +9,7 @@ FRAME_HEIGHT = 272
 FRAME_COUNT = 6572
 
 def pack_frame(image_path):
-    img = Image.open(image_path).convert("L")
+    img = Image.open(image_path).convert("L") # convert to greyscale
     img = img.resize((FRAME_WIDTH, FRAME_HEIGHT))
     
     pixels = img.load()
@@ -19,8 +19,8 @@ def pack_frame(image_path):
     bit_count = 0
     for y in range(FRAME_HEIGHT):
         for x in range(FRAME_WIDTH):
-            pixel = 1 if pixels[x, y] > 128 else 0
-            bit_accum = (bit_accum << 1) | pixel
+            pixel = 1 if pixels[x, y] > 128 else 0 #convert pure greyscale image to stricct black and white
+            bit_accum = (bit_accum << 1) | pixel 
             bit_count += 1
             if bit_count == 8:
                 data.append(bit_accum)

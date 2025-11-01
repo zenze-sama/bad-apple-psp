@@ -4,8 +4,8 @@ import os
 
 FRAME_FOLDER = "frames"
 OUTPUT_FILE = "frames.dat"
-FRAME_WIDTH = 480
-FRAME_HEIGHT = 272
+FRAME_WIDTH = 320
+FRAME_HEIGHT = 180
 FRAME_COUNT = 6572
 
 def pack_frame(image_path):

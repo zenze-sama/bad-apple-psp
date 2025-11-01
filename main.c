@@ -5,7 +5,11 @@
 
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 272
-#define FRAME_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 8)
+
+#define VIDEO_WIDTH 320
+#define VIDEO_HEIGHT 180
+
+#define FRAME_SIZE (VIDEO_WIDTH * VIDEO_HEIGHT / 8)
 #define FRAME_COUNT 6572
 #define FPS 30
 #define FRAME_TIME (1000 / FPS)
@@ -51,8 +55,8 @@ int main(int argc, char *argv[]) {
         renderer,
         SDL_PIXELFORMAT_ARGB8888,
         SDL_TEXTUREACCESS_STREAMING,
-        SCREEN_WIDTH,
-        SCREEN_HEIGHT
+        VIDEO_WIDTH,
+        VIDEO_HEIGHT
     );
 
     if (!texture) {
@@ -75,7 +79,7 @@ int main(int argc, char *argv[]) {
 
     init_lut();
 
-    Uint8 *frameData = malloc(FRAME_SIZE); //some heap magic i dont understand
+    Uint8 *frameData = malloc(FRAME_SIZE);
     if (!frameData) {
         SDL_Log("Memory allocation failed!");
         fclose(file);
@@ -86,7 +90,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    Uint32 *pixels = malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32)); //some heap magic i dont understand
+    Uint32 *pixels = malloc(VIDEO_WIDTH * VIDEO_HEIGHT * sizeof(Uint32));
     if (!pixels) {
         SDL_Log("Pixel buffer allocation failed!");
         free(frameData);
@@ -97,6 +101,12 @@ int main(int argc, char *argv[]) {
         SDL_Quit();
         return -1;
     }
+
+    SDL_Rect dstRect;
+    dstRect.w = VIDEO_WIDTH;
+    dstRect.h = VIDEO_HEIGHT;
+    dstRect.x = (SCREEN_WIDTH - VIDEO_WIDTH) / 2;
+    dstRect.y = (SCREEN_HEIGHT - VIDEO_HEIGHT) / 2;
 
     int running = 1;
     SDL_Event event;
@@ -121,14 +131,17 @@ int main(int argc, char *argv[]) {
 
         Uint32 *dst = pixels;
         for (int i = 0; i < FRAME_SIZE; ++i) {
-            memcpy(dst, LUT[frameData[i]], 8 * sizeof(Uint32));
+            // apparently this is faster 
+            Uint32 *src = LUT[frameData[i]];
+            dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2]; dst[3] = src[3];
+            dst[4] = src[4]; dst[5] = src[5]; dst[6] = src[6]; dst[7] = src[7];
             dst += 8;
         }
 
-        SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
+        SDL_UpdateTexture(texture, NULL, pixels, VIDEO_WIDTH * sizeof(Uint32));
 
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderCopy(renderer, texture, NULL, &dstRect);
         SDL_RenderPresent(renderer);
 
         currentFrame++;
